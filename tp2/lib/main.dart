@@ -1,128 +1,69 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:camera/camera.dart';
-import 'package:path/path.dart' as p; // ✅ alias ajouté pour éviter le conflit
-import 'package:path_provider/path_provider.dart';
+import 'package:audioplayers/audioplayers.dart';
 
-void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-
-  // Récupérer la liste des caméras disponibles
-  final cameras = await availableCameras();
-  final firstCamera = cameras.first;
-
-  runApp(CameraApp(camera: firstCamera));
+void main() {
+  runApp(const MyApp());
 }
 
-class CameraApp extends StatelessWidget {
-  final CameraDescription camera;
-
-  const CameraApp({super.key, required this.camera});
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      title: 'Lecture Audio',
       debugShowCheckedModeBanner: false,
-      title: 'TP2 - Caméra Flutter',
-      theme: ThemeData(primarySwatch: Colors.blue),
-      home: TakePictureScreen(camera: camera),
+      home: const AudioPlayerPage(),
     );
   }
 }
 
-class TakePictureScreen extends StatefulWidget {
-  final CameraDescription camera;
-
-  const TakePictureScreen({super.key, required this.camera});
+class AudioPlayerPage extends StatefulWidget {
+  const AudioPlayerPage({super.key});
 
   @override
-  State<TakePictureScreen> createState() => _TakePictureScreenState();
+  State<AudioPlayerPage> createState() => _AudioPlayerPageState();
 }
 
-class _TakePictureScreenState extends State<TakePictureScreen> {
-  late CameraController _controller;
-  late Future<void> _initializeControllerFuture;
+class _AudioPlayerPageState extends State<AudioPlayerPage> {
+  final AudioPlayer _audioPlayer = AudioPlayer();
+  bool _isPlaying = false;
 
-  @override
-  void initState() {
-    super.initState();
-    // Initialisation du contrôleur de la caméra
-    _controller = CameraController(
-      widget.camera,
-      ResolutionPreset.medium,
-    );
-    _initializeControllerFuture = _controller.initialize();
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  Future<void> _takePicture() async {
-    try {
-      await _initializeControllerFuture;
-
-      // Obtenir un dossier temporaire pour enregistrer la photo
-      final directory = await getTemporaryDirectory();
-      final imagePath = p.join(
-        directory.path,
-        '${DateTime.now()}.png',
-      );
-
-      // Prendre la photo
-      final image = await _controller.takePicture();
-
-      // Sauvegarder la photo
-      await image.saveTo(imagePath);
-
-      if (!mounted) return;
-
-      // Naviguer vers la page d’affichage
-      await Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (context) => DisplayPictureScreen(imagePath: imagePath),
-        ),
-      );
-    } catch (e) {
-      print("Erreur lors de la prise de photo : $e");
+  Future<void> _playOrStop() async {
+    if (_isPlaying) {
+      await _audioPlayer.stop();
+      setState(() => _isPlaying = false);
+    } else {
+      await _audioPlayer.play(AssetSource('audio/son.mp3'));
+      setState(() => _isPlaying = true);
     }
   }
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Prendre une photo')),
-      body: FutureBuilder<void>(
-        future: _initializeControllerFuture,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.done) {
-            return CameraPreview(_controller);
-          } else {
-            return const Center(child: CircularProgressIndicator());
-          }
-        },
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _takePicture,
-        child: const Icon(Icons.camera_alt),
-      ),
-    );
+  void dispose() {
+    _audioPlayer.dispose();
+    super.dispose();
   }
-}
-
-class DisplayPictureScreen extends StatelessWidget {
-  final String imagePath;
-
-  const DisplayPictureScreen({super.key, required this.imagePath});
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Photo prise')),
+      backgroundColor: Colors.white,
       body: Center(
-        child: Image.file(File(imagePath)),
+        child: ElevatedButton(
+          onPressed: _playOrStop,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.blueAccent,
+            padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 20),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+          child: Text(
+            _isPlaying ? 'Arrêter le son' : 'Jouer le son',
+            style: const TextStyle(fontSize: 20, color: Colors.white),
+          ),
+        ),
       ),
     );
   }
